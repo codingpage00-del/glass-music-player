@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#140519" id="metaThemeColor" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Prism" />
+  <title>Prism Glass Player</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --theme-r: 236;
+      --theme-g: 72;
+      --theme-b: 153;
+      --theme-primary: #ec4899;
+      --theme-secondary: #a855f7;
+      --bg-base: #140519;
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background-color: var(--bg-base);
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Full Screen Dynamic Color Morph Background */
+    #dynamicBgWash {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.38) 0%, transparent 58%),
+        radial-gradient(circle at 82% 80%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.28) 0%, transparent 62%),
+        radial-gradient(circle at 50% 50%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.14) 0%, rgba(7, 4, 14, 0.96) 100%);
+      transition: background 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .ambient-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform, background-color;
+      transition: background-color 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* =====================================================================
+       1. BOTTOM FLOATING GLASS PLAYER WITH MOTION BLUR EXPANSION
+       ===================================================================== */
+    @keyframes motionBlurExpand {
+      0% {
+        filter: blur(0px);
+        transform: translate3d(-50%, 0, 0) scale3d(0.96, 0.92, 1);
+      }
+      38% {
+        filter: blur(7px);
+        transform: translate3d(-50%, -6px, 0) scale3d(1.03, 1.04, 1);
+      }
+      100% {
+        filter: blur(0px);
+        transform: translate3d(-50%, 0, 0) scale3d(1, 1, 1);
+      }
+    }
+
+    @keyframes motionBlurCollapse {
+      0% {
+        filter: blur(0px);
+        transform: translate3d(-50%, 0, 0) scale3d(1.02, 1.04, 1);
+      }
+      40% {
+        filter: blur(6px);
+        transform: translate3d(-50%, 4px, 0) scale3d(0.97, 0.95, 1);
+      }
+      100% {
+        filter: blur(0px);
+        transform: translate3d(-50%, 0, 0) scale3d(1, 1, 1);
+      }
+    }
+
+    #bottomPlayerBar {
+      position: fixed;
+      bottom: calc(14px + var(--safe-bottom));
+      left: 50%;
+      transform: translate3d(-50%, 0, 0);
+      width: min(calc(100vw - 24px), 416px);
+      height: 70px;
+      border-radius: 28px;
+      z-index: 60;
+      cursor: pointer;
+      overflow: hidden;
+      background: linear-gradient(
+        135deg,
+        rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.28) 0%,
+        rgba(18, 12, 28, 0.86) 100%
+      );
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.65),
+        0 0 24px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.22),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+      will-change: height, border-radius, transform, filter;
+      transition:
+        height 0.52s cubic-bezier(0.32, 1.4, 0.54, 1),
+        border-radius 0.52s cubic-bezier(0.32, 1.4, 0.54, 1),
+        background 0.6s ease,
+        box-shadow 0.6s ease;
+    }
+
+    #bottomPlayerBar.motion-expanding {
+      animation: motionBlurExpand 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    #bottomPlayerBar.motion-collapsing {
+      animation: motionBlurCollapse 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    #bottomPlayerBar.expanded {
+      height: 204px;
+      border-radius: 36px;
+      cursor: default;
+      background: linear-gradient(
+        145deg,
+        rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.45) 0%,
+        rgba(28, 16, 42, 0.82) 55%,
+        rgba(14, 9, 24, 0.94) 100%
+      );
+      border: 1.2px solid rgba(255, 255, 255, 0.32);
+      box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.82),
+        0 0 42px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.36),
+        inset 0 1.5px 3px rgba(255, 255, 255, 0.42);
+    }
+
+    #playerCompactView {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      opacity: 1;
+      transition: opacity 0.2s ease;
+    }
+
+    #bottomPlayerBar.expanded #playerCompactView {
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+    }
+
+    #playerExpandedView {
+      width: 100%;
+      height: 100%;
+      padding: 18px 20px 16px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale3d(0.92, 0.92, 1);
+      transition:
+        opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.05s,
+        transform 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.04s;
+    }
+
+    #bottomPlayerBar.expanded #playerExpandedView {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale3d(1, 1, 1);
+    }
+
+    .player-progress-track {
+      position: relative;
+      flex: 1;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .player-progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+      transition: width 0.12s linear;
+    }
+
+    /* =====================================================================
+       2. 3-DOTS ANCHORED 3-ROW CURVED GLASS BOX (Tap & Slide-to-Select)
+       ===================================================================== */
+    #anchoredRowMenu {
+      position: fixed;
+      z-index: 80;
+      width: 196px;
+      padding: 6px;
+      border-radius: 22px;
+      background: rgba(22, 14, 34, 0.94);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.78),
+        0 0 24px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.25),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.28);
+      transform-origin: top right;
+      transform: scale3d(0.75, 0.75, 1);
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.22s ease;
+      touch-action: none;
+    }
+
+    #anchoredRowMenu.open {
+      transform: scale3d(1, 1, 1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .menu-row-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 15px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      transition:
+        transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    .menu-row-item.slide-active {
+      background: linear-gradient(
+        135deg,
+        rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.48),
+        rgba(255, 255, 255, 0.14)
+      );
+      transform: scale3d(1.03, 1.03, 1);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      color: #ffffff;
+    }
+
+    .menu-row-item[data-action="delete"].slide-active {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.55), rgba(225, 29, 72, 0.25));
+      color: #fecdd3;
+    }
+
+    /* =====================================================================
+       3. SEGMENTED PILL & 3-PAGE HORIZONTAL SLIDING CAROUSEL
+       ===================================================================== */
+    .segment-pill-outer {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      width: calc((100% - 8px) / 3);
+      pointer-events: none;
+      will-change: transform;
+      transition: transform 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .segment-pill-outer.dragging {
+      transition: none !important;
+    }
+    .segment-pill-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+      box-shadow:
+        inset 0 1.5px 2.5px rgba(255, 255, 255, 0.6),
+        0 4px 20px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.55);
+      transition:
+        transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+        background 0.8s ease,
+        box-shadow 0.8s ease;
+    }
+    .segment-pill-inner.pop {
+      transform: scale3d(1.04, 1.12, 1);
+    }
+
+    #carouselViewport {
+      flex: 1;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      touch-action: pan-y;
+    }
+
+    #carouselTrack {
+      display: flex;
+      width: 300%;
+      height: 100%;
+      will-change: transform;
+      transform: translate3d(0%, 0, 0);
+      transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    #carouselTrack.dragging {
+      transition: none !important;
+    }
+
+    .carousel-page {
+      width: 33.333333%;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 2px 4px 115px 4px;
+    }
+    .carousel-page::-webkit-scrollbar {
+      display: none;
+    }
+
+    .smooth-card {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 1.5px rgba(255, 255, 255, 0.15), 0 8px 24px rgba(0, 0, 0, 0.22);
+      transition:
+        transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        background 0.45s ease,
+        border-color 0.45s ease,
+        box-shadow 0.45s ease;
+    }
+    .smooth-card:active {
+      transform: scale3d(0.975, 0.975, 1);
+    }
+    .smooth-card.active-track {
+      background: linear-gradient(145deg, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.25), rgba(255, 255, 255, 0.05));
+      border-color: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.52);
+      box-shadow:
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.25),
+        0 10px 28px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.22);
+    }
+
+    .tactile-btn {
+      transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .tactile-btn:active {
+      transform: scale3d(0.86, 0.86, 1);
+    }
+  </style>
+</head>
+<body class="relative flex flex-col justify-between select-none">
+
+  <!-- Full Screen Dynamic Background Wash -->
+  <div id="dynamicBgWash"></div>
+  <div id="ambientOrb1" class="ambient-orb w-80 h-80 -top-16 -left-16" style="background-color: rgba(236, 72, 153, 0.35);"></div>
+  <div id="ambientOrb2" class="ambient-orb w-96 h-96 bottom-10 -right-20" style="background-color: rgba(168, 85, 247, 0.28);"></div>
+
+  <!-- ===================================================================
+       MAIN APP SHELL (No Top Island Inside App!)
+       =================================================================== -->
+  <main class="relative z-10 flex-1 flex flex-col max-w-md mx-auto w-full px-4 overflow-hidden"
+        style="padding-top: calc(1.25rem + var(--safe-top)); padding-bottom: var(--safe-bottom);">
+
+    <!-- Header (Clean Library + Auto-Sync Pill) -->
+    <header class="flex items-center justify-between mb-4 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-full flex items-center justify-center shadow-inner transition-all duration-700"
+             style="background: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.22); border: 1px solid rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.45);">
+          <svg class="w-5 h-5 text-white/95" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Library</h1>
+      </div>
+
+      <label class="tactile-btn px-3.5 py-1.5 rounded-full bg-emerald-950/65 border border-emerald-500/35 flex items-center gap-2 text-xs font-semibold text-emerald-300 cursor-pointer shadow-sm">
+        <input type="file" id="audioUploadInput" accept="audio/*" multiple class="hidden" />
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Auto-Sync
+      </label>
+    </header>
+
+    <!-- Top Segmented Bar (Supports Tap + Touch Drag Sliding) -->
+    <div id="segmentedBar" class="relative p-1 rounded-full bg-white/[0.06] border border-white/10 flex items-center mb-4 shrink-0 touch-none cursor-pointer">
+      <div id="segmentPillOuter" class="segment-pill-outer">
+        <div id="segmentPillInner" class="segment-pill-inner"></div>
+      </div>
+      <button type="button" data-tab="0" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white text-center transition-colors">Tracks</button>
+      <button type="button" data-tab="1" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white/60 text-center transition-colors">Playlists</button>
+      <button type="button" data-tab="2" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white/60 text-center transition-colors">Queue</button>
+    </div>
+
+    <!-- 3-PAGE HORIZONTAL SLIDING CAROUSEL (Tracks | Playlists | Queue) -->
+    <div id="carouselViewport">
+      <div id="carouselTrack">
+        <div id="tracksPage" class="carousel-page space-y-3"></div>
+        <div id="playlistsPage" class="carousel-page space-y-3"></div>
+        <div id="queuePage" class="carousel-page space-y-3"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===================================================================
+       1. BOTTOM FLOATING GLASS PLAYER (Tap -> Motion Blur Expand Controls)
+       =================================================================== -->
+  <div id="bottomPlayerBar" onclick="expandBottomPlayer(event)">
+    <!-- Compact Bottom Bar State -->
+    <div id="playerCompactView">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="miniPlayerArt"
+             class="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
+             style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <p id="miniPlayerTitle" class="text-sm font-bold text-white truncate">Cyber Pulse (Synthwave)</p>
+          <p id="miniPlayerArtist" class="text-xs text-white/65 truncate mt-0.5">Liquid Glass Audio</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="event.stopPropagation(); togglePlayPause();"
+                class="tactile-btn w-10 h-10 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white">
+          <svg id="miniPlayIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); playNextTrack();"
+                class="tactile-btn w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white/85">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Expanded Glass Controls State (OriginOS / iOS Island Card Style) -->
+    <div id="playerExpandedView">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3.5 min-w-0">
+          <div class="relative shrink-0">
+            <div id="expPlayerArt"
+                 class="w-[52px] h-[52px] rounded-2xl flex items-center justify-center shadow-lg border border-white/25"
+                 style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+              </svg>
+            </div>
+            <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center shadow-md">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.59 14.42c-.18.3-.56.4-.86.22-2.35-1.43-5.3-1.76-8.78-.96-.33.08-.67-.13-.75-.46-.08-.33.13-.67.46-.75 3.81-.87 7.08-.5 9.71 1.11.3.18.4.56.22.84zm1.22-2.72c-.23.37-.71.49-1.08.26-2.69-1.65-6.79-2.13-9.97-1.16-.41.13-.85-.11-.98-.52-.13-.41.11-.85.52-.98 3.63-1.1 8.15-.57 11.25 1.34.37.23.49.71.26 1.06z"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <h3 id="expPlayerTitle" class="text-base font-bold text-white truncate leading-tight">Cyber Pulse (Synthwave)</h3>
+            <p id="expPlayerArtist" class="text-xs text-white/70 truncate mt-0.5">Liquid Glass Audio</p>
+          </div>
+        </div>
+
+        <!-- Right Actions: Floating Home Screen PiP Island Button + Collapse -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" onclick="toggleHomeScreenIslandPiP(event)"
+                  class="tactile-btn px-2.5 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center gap-1.5 text-[11px] font-semibold text-white/95"
+                  title="Pop out Floating Island to Home Screen">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2 16.1A5 5 0 015.9 20M2 12.05A9 9 0 019.95 20M2 8V6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2h-6"/>
+            </svg>
+            <span>Island</span>
+          </button>
+
+          <button type="button" onclick="collapseBottomPlayer(event)"
+                  class="tactile-btn w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white/85">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Middle Row: Previous | Play/Pause | Next Controls -->
+      <div class="flex items-center justify-center gap-12 my-1">
+        <button type="button" onclick="event.stopPropagation(); playPrevTrack();" class="tactile-btn text-white/95 hover:text-white">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); togglePlayPause();" class="tactile-btn text-white scale-110">
+          <svg id="expPlayIcon" class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); playNextTrack();" class="tactile-btn text-white/95 hover:text-white">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+
+      <!-- Bottom Row: Current Time | Glowing Capsule Seekbar | Total Duration -->
+      <div class="flex items-center gap-3 w-full">
+        <span id="playerCurTime" class="text-[11px] font-medium text-white/75 w-8 text-left">00:00</span>
+        <div id="playerSeekTrack" class="player-progress-track" onclick="seekFromPlayer(event)">
+          <div id="playerSeekFill" class="player-progress-fill" style="width: 0%;"></div>
+        </div>
+        <span id="playerTotTime" class="text-[11px] font-medium text-white/75 w-8 text-right">03:42</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       2. 3-DOTS ANCHORED 3-ROW CURVED GLASS BOX (Tap or Slide to Select)
+       =================================================================== -->
+  <div id="anchoredRowMenu">
+    <div id="menuRowsWrapper" class="flex flex-col gap-1">
+      <div class="menu-row-item cursor-pointer" data-action="queue">
+        <svg class="w-4 h-4 text-fuchsia-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7m4 0h6m-3-3v6"/>
+        </svg>
+        <span>Add to Queue</span>
+      </div>
+
+      <div class="menu-row-item cursor-pointer" data-action="playlist">
+        <svg class="w-4 h-4 text-indigo-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        <span>Add to Playlist</span>
+      </div>
+
+      <div class="menu-row-item cursor-pointer text-rose-300" data-action="delete">
+        <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        <span>Delete</span>
+      </div>
+    </div>
+
+    <div id="inlinePlaylistCreator" class="hidden flex-col gap-2 p-1.5">
+      <input id="inlinePlNameInput" type="text" placeholder="Playlist name..."
+             class="w-full px-3 py-2 rounded-xl bg-black/45 border border-white/20 text-xs text-white placeholder-white/45 focus:outline-none" />
+      <div class="flex gap-1.5">
+        <button type="button" onclick="confirmInlinePlaylist()"
+                class="tactile-btn flex-1 py-1.5 rounded-xl text-xs font-bold text-white"
+                style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+          Save
+        </button>
+        <button type="button" onclick="closeAnchoredMenu()"
+                class="tactile-btn px-3 py-1.5 rounded-xl bg-white/10 text-xs text-white/75">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Canvas & Video for Home Screen Floating Dynamic Island (PiP) & MediaSession Artwork -->
+  <canvas id="pipIslandCanvas" width="480" height="190" class="hidden"></canvas>
+  <video id="pipIslandVideo" muted playsinline class="hidden"></video>
+
+  <!-- Soft Floating Toast -->
+  <div id="toastBanner"
+       class="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-black/80 border border-white/15 backdrop-blur-xl text-xs font-semibold text-white shadow-xl pointer-events-none opacity-0 transition-all duration-300 scale-95">
+    Done
+  </div>
+
+  <script>
+    /********************************************************************
+     * AUTO CACHE BUSTER & SERVICE WORKER REGISTRATION
+     ********************************************************************/
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            if (key !== 'glass-music-player-v11') {
+              await caches.delete(key);
+            }
+          }
+          const reg = await navigator.serviceWorker.register('./sw.js');
+          reg.update();
+        } catch (e) {}
+      });
+    }
+
+    /********************************************************************
+     * UNIQUE COLOR PALETTES FOR EVERY SONG + SMOOTH THEME MORPHING
+     ********************************************************************/
+    const COLOR_PALETTES = [
+      { name: "pink", primary: "#ec4899", secondary: "#d946ef", rgb: [236, 72, 153], bgBase: "#16061b" },
+      { name: "purple", primary: "#6366f1", secondary: "#8b5cf6", rgb: [99, 102, 241], bgBase: "#0a0820" },
+      { name: "green", primary: "#10b981", secondary: "#0d9488", rgb: [16, 185, 129], bgBase: "#041814" },
+      { name: "amber", primary: "#f59e0b", secondary: "#ea580c", rgb: [245, 158, 11], bgBase: "#1a0e04" },
+      { name: "cyan", primary: "#06b6d4", secondary: "#3b82f6", rgb: [6, 182, 212], bgBase: "#04151f" },
+      { name: "rose", primary: "#f43f5e", secondary: "#e11d48", rgb: [244, 63, 94], bgBase: "#1c050c" },
+      { name: "violet", primary: "#a855f7", secondary: "#ec4899", rgb: [168, 85, 247], bgBase: "#130722" },
+      { name: "lime", primary: "#84cc16", secondary: "#10b981", rgb: [132, 204, 22], bgBase: "#0c1805" }
+    ];
+
+    let currentRGB = [236, 72, 153];
+    let targetRGB = [236, 72, 153];
+
+    function applySongTheme(palette) {
+      if (!palette) return;
+      targetRGB = [...palette.rgb];
+      const root = document.documentElement;
+      root.style.setProperty("--theme-r", palette.rgb[0]);
+      root.style.setProperty("--theme-g", palette.rgb[1]);
+      root.style.setProperty("--theme-b", palette.rgb[2]);
+      root.style.setProperty("--theme-primary", palette.primary);
+      root.style.setProperty("--theme-secondary", palette.secondary);
+      root.style.setProperty("--bg-base", palette.bgBase);
+
+      const meta = document.getElementById("metaThemeColor");
+      if (meta) meta.setAttribute("content", palette.bgBase);
+
+      document.getElementById("ambientOrb1").style.backgroundColor = `rgba(${palette.rgb[0]}, ${palette.rgb[1]}, ${palette.rgb[2]}, 0.38)`;
+      document.getElementById("ambientOrb2").style.backgroundColor = `rgba(${palette.rgb[0]}, ${palette.rgb[1]}, ${palette.rgb[2]}, 0.28)`;
+    }
+
+    /********************************************************************
+     * STATE & INDEXED-DB OFFLINE STORAGE
+     ********************************************************************/
+    const DB_NAME = "GlassMusicStorageDB";
+    const STORE_NAME = "tracks";
+    let dbInstance = null;
+
+    let tracks = [
+      { id: "sample_1", title: "Cyber Pulse (Synthwave)", artist: "Liquid Glass Audio", sample: true, freq: 115, duration: 222, palette: COLOR_PALETTES[0] },
+      { id: "sample_2", title: "Midnight Chill (Lo-Fi)", artist: "Aura Soundscapes", sample: true, freq: 88, duration: 198, palette: COLOR_PALETTES[1] },
+      { id: "sample_3", title: "Starlight Drifts (Melodic)", artist: "Neon Horizon", sample: true, freq: 146, duration: 245, palette: COLOR_PALETTES[2] }
+    ];
+
+    let queueList = [...tracks];
+    let playlists = [];
+    let activeTab = 0;
+    let currentTrackIndex = 0;
+    let isPlaying = false;
+    let sampleElapsed = 0;
+
+    const dbReq = indexedDB.open(DB_NAME, 1);
+    dbReq.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+    };
+    dbReq.onsuccess = (e) => {
+      dbInstance = e.target.result;
+      const tx = dbInstance.transaction(STORE_NAME, "readonly");
+      tx.objectStore(STORE_NAME).getAll().onsuccess = (ev) => {
+        const stored = ev.target.result || [];
+        stored.forEach((item, idx) => {
+          const blobUrl = URL.createObjectURL(item.blob);
+          const palette = COLOR_PALETTES[(3 + idx) % COLOR_PALETTES.length];
+          const tr = { id: item.id, title: item.title, artist: item.artist || "Auto-Synced Audio", url: blobUrl, sample: false, palette };
+          tracks.push(tr);
+          queueList.push(tr);
+        });
+        renderAllPages();
+      };
+    };
+
+    document.getElementById("audioUploadInput").addEventListener("change", (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      files.forEach((file) => {
+        const id = "track_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+        const title = file.name.replace(/\.[^/.]+$/, "");
+        const blobUrl = URL.createObjectURL(file);
+        const palette = COLOR_PALETTES[tracks.length % COLOR_PALETTES.length];
+        const newTrack = { id, title, artist: "Auto-Synced Audio", url: blobUrl, sample: false, palette };
+        tracks.push(newTrack);
+        queueList.push(newTrack);
+
+        if (dbInstance) {
+          const tx = dbInstance.transaction(STORE_NAME, "readwrite");
+          tx.objectStore(STORE_NAME).put({ id, title, artist: "Auto-Synced Audio", blob: file });
+        }
+      });
+      renderAllPages();
+      showToast(`Synced ${files.length} track${files.length > 1 ? 's' : ''}`);
+    });
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const t = document.getElementById("toastBanner");
+      t.textContent = msg;
+      t.classList.remove("opacity-0", "scale-95");
+      t.classList.add("opacity-100", "scale-100");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.classList.remove("opacity-100", "scale-100");
+        t.classList.add("opacity-0", "scale-95");
+      }, 2200);
+    }
+
+    /********************************************************************
+     * 1. BOTTOM PLAYER MOTION-BLUR EXPANSION & AUDIO ENGINE
+     ********************************************************************/
+    const bottomPlayerBar = document.getElementById("bottomPlayerBar");
+    let isPlayerExpanded = false;
+
+    function expandBottomPlayer(e) {
+      if (e) e.stopPropagation();
+      if (!isPlayerExpanded) {
+        isPlayerExpanded = true;
+        bottomPlayerBar.classList.remove("motion-collapsing");
+        bottomPlayerBar.classList.add("motion-expanding", "expanded");
+        setTimeout(() => bottomPlayerBar.classList.remove("motion-expanding"), 500);
+      }
+    }
+
+    function collapseBottomPlayer(e) {
+      if (e) e.stopPropagation();
+      if (isPlayerExpanded) {
+        isPlayerExpanded = false;
+        bottomPlayerBar.classList.remove("motion-expanding", "expanded");
+        bottomPlayerBar.classList.add("motion-collapsing");
+        setTimeout(() => bottomPlayerBar.classList.remove("motion-collapsing"), 460);
+      }
+    }
+
+    document.addEventListener("pointerdown", (e) => {
+      if (isPlayerExpanded && !bottomPlayerBar.contains(e.target)) {
+        collapseBottomPlayer();
+      }
+    });
+
+    const audioElement = new Audio();
+    audioElement.crossOrigin = "anonymous";
+    audioElement.playsInline = true;
+
+    let audioCtx = null;
+    let analyserNode = null;
+    let sourceNodeRef = null;
+    let freqDataArray = null;
+    let synthOsc = null;
+    let synthGain = null;
+
+    function ensureAudioEngineReady() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 64;
+        analyserNode.smoothingTimeConstant = 0.8;
+        freqDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+        if (!sourceNodeRef) {
+          sourceNodeRef = audioCtx.createMediaElementSource(audioElement);
+          sourceNodeRef.connect(analyserNode);
+          analyserNode.connect(audioCtx.destination);
+        }
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    function stopSampleOscillator() {
+      if (synthOsc) {
+        try { synthOsc.stop(); synthOsc.disconnect(); } catch (err) {}
+        synthOsc = null;
+      }
+    }
+
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) return "00:00";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+    }
+
+    /********************************************************************
+     * ANDROID HOME SCREEN NATIVE DYNAMIC ISLAND (MediaSession + PiP)
+     ********************************************************************/
+    function generateArtworkDataURL(palette, title) {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext("2d");
+      const grad = ctx.createLinearGradient(0, 0, 512, 512);
+      grad.addColorStop(0, palette.primary);
+      grad.addColorStop(1, palette.secondary);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 512);
+
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "bold 190px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("♪", 256, 256);
+      return c.toDataURL("image/png");
+    }
+
+    function updateAndroidSystemIsland(track) {
+      if (!('mediaSession' in navigator) || !track) return;
+      const artUrl = generateArtworkDataURL(track.palette, track.title);
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: "Prism Glass Player",
+        artwork: [
+          { src: artUrl, sizes: "192x192", type: "image/png" },
+          { src: artUrl, sizes: "512x512", type: "image/png" }
+        ]
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+
+      navigator.mediaSession.setActionHandler("play", () => togglePlayPause());
+      navigator.mediaSession.setActionHandler("pause", () => togglePlayPause());
+      navigator.mediaSession.setActionHandler("previoustrack", () => playPrevTrack());
+      navigator.mediaSession.setActionHandler("nexttrack", () => playNextTrack());
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (audioElement.duration && details.seekTime != null) {
+          audioElement.currentTime = details.seekTime;
+        }
+      });
+    }
+
+    // Floating Home Screen Picture-in-Picture Glass Island
+    const pipCanvas = document.getElementById("pipIslandCanvas");
+    const pipCtx = pipCanvas.getContext("2d");
+    const pipVideo = document.getElementById("pipIslandVideo");
+    let pipStreamInitialized = false;
+
+    async function toggleHomeScreenIslandPiP(e) {
+      if (e) e.stopPropagation();
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          return;
+        }
+        if (!pipStreamInitialized && pipCanvas.captureStream) {
+          pipVideo.srcObject = pipCanvas.captureStream(30);
+          pipStreamInitialized = true;
+        }
+        await pipVideo.play();
+        if (pipVideo.requestPictureInPicture) {
+          await pipVideo.requestPictureInPicture();
+          showToast("Home Screen Island Active! Go to Home Screen");
+        } else {
+          showToast(" System Media Island Active in Background");
+        }
+      } catch (err) {
+        showToast("Play a song first to pop out Home Island");
+      }
+    }
+
+    function playTrackById(id) {
+      const idx = tracks.findIndex((t) => t.id === id);
+      if (idx !== -1) playTrackAtIndex(idx);
+    }
+
+    function playTrackAtIndex(index) {
+      if (!tracks.length) return;
+      ensureAudioEngineReady();
+      currentTrackIndex = Math.max(0, Math.min(tracks.length - 1, index));
+      const track = tracks[currentTrackIndex];
+
+      applySongTheme(track.palette);
+
+      document.getElementById("miniPlayerTitle").textContent = track.title;
+      document.getElementById("miniPlayerArtist").textContent = track.artist;
+      document.getElementById("expPlayerTitle").textContent = track.title;
+      document.getElementById("expPlayerArtist").textContent = track.artist;
+
+      stopSampleOscillator();
+      sampleElapsed = 0;
+
+      if (track.sample) {
+        audioElement.pause();
+        synthOsc = audioCtx.createOscillator();
+        synthGain = audioCtx.createGain();
+        synthOsc.type = "sine";
+        synthOsc.frequency.setValueAtTime(track.freq, audioCtx.currentTime);
+        synthGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        synthOsc.connect(synthGain);
+        synthGain.connect(analyserNode);
+        synthOsc.start();
+        document.getElementById("playerTotTime").textContent = formatTime(track.duration || 210);
+        isPlaying = true;
+      } else {
+        audioElement.src = track.url;
+        audioElement.play().catch(() => {});
+        isPlaying = true;
+      }
+
+      syncPlayIcons();
+      updateAndroidSystemIsland(track);
+      renderAllPages();
+    }
+
+    function togglePlayPause() {
+      if (!tracks.length) return;
+      ensureAudioEngineReady();
+      const track = tracks[currentTrackIndex];
+      if (isPlaying) {
+        if (track.sample) stopSampleOscillator();
+        else audioElement.pause();
+        isPlaying = false;
+      } else {
+        if (!track.sample && audioElement.src) {
+          audioElement.play().catch(() => {});
+          isPlaying = true;
+        } else {
+          playTrackAtIndex(currentTrackIndex);
+        }
+      }
+      syncPlayIcons();
+      updateAndroidSystemIsland(track);
+    }
+
+    function playNextTrack() {
+      if (!tracks.length) return;
+      playTrackAtIndex((currentTrackIndex + 1) % tracks.length);
+    }
+
+    function playPrevTrack() {
+      if (!tracks.length) return;
+      playTrackAtIndex((currentTrackIndex - 1 + tracks.length) % tracks.length);
+    }
+
+    function syncPlayIcons() {
+      const path = isPlaying
+        ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+        : '<path d="M8 5v14l11-7z"/>';
+      document.getElementById("miniPlayIcon").innerHTML = path;
+      document.getElementById("expPlayIcon").innerHTML = path;
+    }
+
+    function seekFromPlayer(e) {
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const track = tracks[currentTrackIndex];
+      if (!track) return;
+
+      if (track.sample) {
+        sampleElapsed = ratio * (track.duration || 210);
+      } else if (audioElement.duration) {
+        audioElement.currentTime = ratio * audioElement.duration;
+      }
+      document.getElementById("playerSeekFill").style.width = `${ratio * 100}%`;
+    }
+
+    audioElement.addEventListener("timeupdate", () => {
+      if (audioElement.duration) {
+        const pct = (audioElement.currentTime / audioElement.duration) * 100;
+        document.getElementById("playerSeekFill").style.width = `${pct}%`;
+        document.getElementById("playerCurTime").textContent = formatTime(audioElement.currentTime);
+        document.getElementById("playerTotTime").textContent = formatTime(audioElement.duration);
+
+        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: audioElement.duration,
+              playbackRate: audioElement.playbackRate || 1,
+              position: audioElement.currentTime
+            });
+          } catch (e) {}
+        }
+      }
+    });
+    audioElement.addEventListener("ended", playNextTrack);
+
+    setInterval(() => {
+      const track = tracks[currentTrackIndex];
+      if (isPlaying && track && track.sample) {
+        const total = track.duration || 210;
+        sampleElapsed = (sampleElapsed + 0.25) % total;
+        const pct = (sampleElapsed / total) * 100;
+        document.getElementById("playerSeekFill").style.width = `${pct}%`;
+        document.getElementById("playerCurTime").textContent = formatTime(sampleElapsed);
+      }
+    }, 250);
+
+    /********************************************************************
+     * 2. 3-DOTS ANCHORED 3-ROW CURVED GLASS BOX (Tap OR Slide-to-Select)
+     ********************************************************************/
+    const anchoredMenu = document.getElementById("anchoredRowMenu");
+    const menuRowsWrapper = document.getElementById("menuRowsWrapper");
+    const inlinePlaylistCreator = document.getElementById("inlinePlaylistCreator");
+    const rowItems = Array.from(document.querySelectorAll(".menu-row-item"));
+
+    let activeMenuTrackId = null;
+    let isMenuOpen = false;
+    let isSlidingMenu = false;
+    let highlightedAction = null;
+
+    function openAnchoredMenu(e, trackId, btnEl) {
+      e.stopPropagation();
+      e.preventDefault();
+      activeMenuTrackId = trackId;
+
+      menuRowsWrapper.classList.remove("hidden");
+      inlinePlaylistCreator.classList.add("hidden");
+      inlinePlaylistCreator.classList.remove("flex");
+      clearRowHighlights();
+
+      const rect = btnEl.getBoundingClientRect();
+      const menuWidth = 196;
+      const menuHeight = 148;
+
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + 6;
+
+      if (left < 12) left = 12;
+      if (top + menuHeight > window.innerHeight - 95) {
+        top = rect.top - menuHeight - 6;
+        anchoredMenu.style.transformOrigin = "bottom right";
+      } else {
+        anchoredMenu.style.transformOrigin = "top right";
+      }
+
+      anchoredMenu.style.left = `${left}px`;
+      anchoredMenu.style.top = `${top}px`;
+      anchoredMenu.classList.add("open");
+      isMenuOpen = true;
+      isSlidingMenu = true;
+    }
+
+    function closeAnchoredMenu() {
+      anchoredMenu.classList.remove("open");
+      isMenuOpen = false;
+      isSlidingMenu = false;
+      highlightedAction = null;
+      clearRowHighlights();
+    }
+
+    function clearRowHighlights() {
+      rowItems.forEach((r) => r.classList.remove("slide-active"));
+    }
+
+    function updateSlideHighlight(clientX, clientY) {
+      const el = document.elementFromPoint(clientX, clientY);
+      const row = el ? el.closest(".menu-row-item") : null;
+      clearRowHighlights();
+      if (row) {
+        row.classList.add("slide-active");
+        highlightedAction = row.getAttribute("data-action");
+      } else {
+        highlightedAction = null;
+      }
+    }
+
+    window.addEventListener("pointermove", (e) => {
+      if (!isMenuOpen || !isSlidingMenu) return;
+      updateSlideHighlight(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("pointerup", () => {
+      if (!isMenuOpen) return;
+      if (isSlidingMenu) {
+        isSlidingMenu = false;
+        if (highlightedAction) {
+          executeMenuAction(highlightedAction);
+        }
+      }
+    });
+
+    anchoredMenu.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      if (!inlinePlaylistCreator.classList.contains("hidden")) return;
+      isSlidingMenu = true;
+      updateSlideHighlight(e.clientX, e.clientY);
+    });
+
+    rowItems.forEach((row) => {
+      row.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const act = row.getAttribute("data-action");
+        executeMenuAction(act);
+      });
+    });
+
+    document.addEventListener("pointerdown", (e) => {
+      if (isMenuOpen && !anchoredMenu.contains(e.target) && !e.target.closest(".dots-trigger")) {
+        closeAnchoredMenu();
+      }
+    });
+
+    function executeMenuAction(action) {
+      const track = tracks.find((t) => t.id === activeMenuTrackId);
+      if (!track) {
+        closeAnchoredMenu();
+        return;
+      }
+
+      if (action === "queue") {
+        queueList.push({ ...track });
+        renderAllPages();
+        showToast(`Added "${track.title}" to Queue`);
+        closeAnchoredMenu();
+      } else if (action === "playlist") {
+        menuRowsWrapper.classList.add("hidden");
+        inlinePlaylistCreator.classList.remove("hidden");
+        inlinePlaylistCreator.classList.add("flex");
+        const inp = document.getElementById("inlinePlNameInput");
+        inp.value = "";
+        setTimeout(() => inp.focus(), 60);
+      } else if (action === "delete") {
+        tracks = tracks.filter((t) => t.id !== activeMenuTrackId);
+        queueList = queueList.filter((t) => t.id !== activeMenuTrackId);
+        if (dbInstance) {
+          const tx = dbInstance.transaction(STORE_NAME, "readwrite");
+          tx.objectStore(STORE_NAME).delete(activeMenuTrackId);
+        }
+        if (currentTrackIndex >= tracks.length) {
+          currentTrackIndex = Math.max(0, tracks.length - 1);
+        }
+        if (tracks[currentTrackIndex]) {
+          applySongTheme(tracks[currentTrackIndex].palette);
+        }
+        renderAllPages();
+        showToast(`Deleted "${track.title}"`);
+        closeAnchoredMenu();
+      }
+    }
+
+    function confirmInlinePlaylist() {
+      const inp = document.getElementById("inlinePlNameInput");
+      const name = inp.value.trim() || "My Mix";
+      const track = tracks.find((t) => t.id === activeMenuTrackId);
+      playlists.push({
+        id: "pl_" + Date.now(),
+        name,
+        tracks: track ? [track] : [],
+        palette: track ? track.palette : COLOR_PALETTES[0]
+      });
+      renderAllPages();
+      closeAnchoredMenu();
+      goToTab(1);
+      showToast(`Added to playlist "${name}"`);
+    }
+
+    /********************************************************************
+     * 3. UNIFIED 3-PAGE HORIZONTAL SLIDING CAROUSEL & TAB PILL
+     ********************************************************************/
+    const segmentedBar = document.getElementById("segmentedBar");
+    const pillOuter = document.getElementById("segmentPillOuter");
+    const pillInner = document.getElementById("segmentPillInner");
+    const segButtons = document.querySelectorAll(".seg-btn");
+    const carouselViewport = document.getElementById("carouselViewport");
+    const carouselTrack = document.getElementById("carouselTrack");
+
+    function goToTab(idx) {
+      activeTab = Math.max(0, Math.min(2, idx));
+      pillOuter.classList.remove("dragging");
+      carouselTrack.classList.remove("dragging");
+
+      pillOuter.style.transform = `translate3d(${activeTab * 100}%, 0, 0)`;
+      carouselTrack.style.transform = `translate3d(-${activeTab * (100 / 3)}%, 0, 0)`;
+
+      pillInner.classList.add("pop");
+      setTimeout(() => pillInner.classList.remove("pop"), 240);
+
+      segButtons.forEach((btn, i) => {
+        btn.className = `seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-center transition-colors ${
+          i === activeTab ? "text-white" : "text-white/60"
+        }`;
+      });
+    }
+
+    segButtons.forEach((btn, i) => {
+      btn.addEventListener("click", () => goToTab(i));
+    });
+
+    let isTabDragging = false;
+    segmentedBar.addEventListener("pointerdown", (e) => {
+      isTabDragging = true;
+      pillOuter.classList.add("dragging");
+      carouselTrack.classList.add("dragging");
+      pillInner.classList.add("pop");
+      segmentedBar.setPointerCapture(e.pointerId);
+    });
+
+    segmentedBar.addEventListener("pointermove", (e) => {
+      if (!isTabDragging) return;
+      const rect = segmentedBar.getBoundingClientRect();
+      const relX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      const continuousTab = Math.max(0, Math.min(2, (relX / rect.width) * 3 - 0.5));
+      pillOuter.style.transform = `translate3d(${continuousTab * 100}%, 0, 0)`;
+      carouselTrack.style.transform = `translate3d(-${continuousTab * (100 / 3)}%, 0, 0)`;
+    });
+
+    function endTabDrag(e) {
+      if (!isTabDragging) return;
+      isTabDragging = false;
+      const rect = segmentedBar.getBoundingClientRect();
+      const relX = Math.max(0, Math.min(rect.width - 1, e.clientX - rect.left));
+      const targetIdx = Math.floor((relX / rect.width) * 3);
+      goToTab(targetIdx);
+    }
+    segmentedBar.addEventListener("pointerup", endTabDrag);
+    segmentedBar.addEventListener("pointercancel", endTabDrag);
+
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    let swipeCurrentX = 0;
+    let isSwipingScreen = false;
+    let swipeAxisLocked = null;
+    let swipeStartTime = 0;
+
+    carouselViewport.addEventListener("touchstart", (e) => {
+      if (isMenuOpen) return;
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+      swipeCurrentX = swipeStartX;
+      isSwipingScreen = true;
+      swipeAxisLocked = null;
+      swipeStartTime = performance.now();
+    }, { passive: true });
+
+    carouselViewport.addEventListener("touchmove", (e) => {
+      if (!isSwipingScreen) return;
+      const x = e.touches[0].clientX;
+      const y = e.touches[0].clientY;
+      const dx = x - swipeStartX;
+      const dy = y - swipeStartY;
+
+      if (!swipeAxisLocked) {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          swipeAxisLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+          if (swipeAxisLocked === "x") {
+            pillOuter.classList.add("dragging");
+            carouselTrack.classList.add("dragging");
+          }
+        }
+      }
+
+      if (swipeAxisLocked === "x") {
+        swipeCurrentX = x;
+        const width = carouselViewport.clientWidth || window.innerWidth;
+        const deltaTabs = -dx / width;
+        const continuousTab = Math.max(0, Math.min(2, activeTab + deltaTabs));
+        pillOuter.style.transform = `translate3d(${continuousTab * 100}%, 0, 0)`;
+        carouselTrack.style.transform = `translate3d(-${continuousTab * (100 / 3)}%, 0, 0)`;
+      }
+    }, { passive: true });
+
+    carouselViewport.addEventListener("touchend", () => {
+      if (!isSwipingScreen) return;
+      isSwipingScreen = false;
+      if (swipeAxisLocked === "x") {
+        const dx = swipeCurrentX - swipeStartX;
+        const dt = Math.max(1, performance.now() - swipeStartTime);
+        const velocity = dx / dt;
+        const width = carouselViewport.clientWidth || window.innerWidth;
+
+        let nextTab = activeTab;
+        if (dx < -width * 0.22 || velocity < -0.35) {
+          nextTab = Math.min(2, activeTab + 1);
+        } else if (dx > width * 0.22 || velocity > 0.35) {
+          nextTab = Math.max(0, activeTab - 1);
+        }
+        goToTab(nextTab);
+      }
+      swipeAxisLocked = null;
+    });
+
+/********************************************************************
+     * RENDER ALL 3 PAGES (TRACKS, PLAYLISTS, QUEUE)
+     ********************************************************************/
+    function createTrackCardHTML(t, activeTrackId) {
+      const isCurrent = t.id === activeTrackId;
+      return `
+        <div onclick="playTrackById('${t.id}')"
+             class="smooth-card rounded-3xl p-3.5 flex items-center justify-between cursor-pointer ${
+               isCurrent ? "active-track" : ""
+             }">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+                 style="background: linear-gradient(135deg, ${t.palette.primary}, ${t.palette.secondary}); box-shadow: 0 6px 16px rgba(${t.palette.rgb.join(",")}, 0.32);">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+              </svg>
+            </div>
+            <div class="truncate">
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-semibold text-white truncate">${t.title}</p>
+                ${t.sample ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-teal-950/80 border border-teal-400/30 text-teal-300 font-medium">Sample</span>' : ""}
+              </div>
+              <p class="text-xs text-white/60 truncate mt-0.5">${t.artist}</p>
+            </div>
+          </div>
+
+          <button type="button"
+                  onpointerdown="openAnchoredMenu(event, '${t.id}', this)"
+                  onclick="event.stopPropagation()"
+                  class="dots-trigger tactile-btn w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white/70 shrink-0 text-lg font-bold">
+            ⋮
+          </button>
+        </div>
+      `;
+    }
+
+    function renderAllPages() {
+      const activeTrackId = tracks[currentTrackIndex]?.id;
+
+      const tracksPage = document.getElementById("tracksPage");
+      tracksPage.innerHTML = tracks.length
+        ? tracks.map((t) => createTrackCardHTML(t, activeTrackId)).join("")
+        : `<div class="smooth-card rounded-3xl p-8 text-center text-xs text-white/60">No tracks in library. Tap Auto-Sync to import.</div>`;
+
+      const playlistsPage = document.getElementById("playlistsPage");
+      playlistsPage.innerHTML = playlists.length === 0
+        ? `
+          <div class="smooth-card rounded-3xl p-8 text-center my-2">
+            <p class="text-sm font-bold text-white mb-1">No Playlists Yet</p>
+            <p class="text-xs text-white/55">Tap or slide on any song's 3-dots (⋮) and choose "Add to Playlist".</p>
+          </div>
+        `
+        : playlists.map((pl) => `
+          <div class="smooth-card rounded-3xl p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3.5">
+              <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm"
+                   style="background: linear-gradient(135deg, ${pl.palette.primary}, ${pl.palette.secondary});">
+                ♪
+              </div>
+              <div>
+                <p class="font-semibold text-sm text-white">${pl.name}</p>
+                <p class="text-xs text-white/55">${pl.tracks.length} song${pl.tracks.length === 1 ? "" : "s"}</p>
+              </div>
+            </div>
+          </div>
+        `).join("");
+
+      const queuePage = document.getElementById("queuePage");
+      queuePage.innerHTML = queueList.length
+        ? queueList.map((t) => createTrackCardHTML(t, activeTrackId)).join("")
+        : `<div class="smooth-card rounded-3xl p-8 text-center text-xs text-white/60">Queue is empty.</div>`;
+    }
+
+    /********************************************************************
+     * 120Hz HOME SCREEN PIP ISLAND RENDERER & RGB INTERPOLATION
+     ********************************************************************/
+    function animateLoop() {
+      if (analyserNode && isPlaying && freqDataArray) {
+        analyserNode.getByteFrequencyData(freqDataArray);
+      } else if (freqDataArray) {
+        freqDataArray.fill(0);
+      }
+
+      currentRGB[0] += (targetRGB[0] - currentRGB[0]) * 0.08;
+      currentRGB[1] += (targetRGB[1] - currentRGB[1]) * 0.08;
+      currentRGB[2] += (targetRGB[2] - currentRGB[2]) * 0.08;
+
+      const r = Math.round(currentRGB[0]);
+      const g = Math.round(currentRGB[1]);
+      const b = Math.round(currentRGB[2]);
+      const track = tracks[currentTrackIndex];
+
+      // Draw Glass Dynamic Island inside PiP Canvas for Home Screen
+      pipCtx.clearRect(0, 0, 480, 190);
+      const grad = pipCtx.createLinearGradient(0, 0, 480, 190);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.85)`);
+      grad.addColorStop(1, "rgba(16, 10, 28, 0.96)");
+      pipCtx.fillStyle = grad;
+      pipCtx.beginPath();
+      pipCtx.roundRect(8, 8, 464, 174, 36);
+      pipCtx.fill();
+
+      if (track) {
+        pipCtx.fillStyle = "#ffffff";
+        pipCtx.font = "bold 24px sans-serif";
+        pipCtx.fillText(track.title.slice(0, 22), 34, 65);
+        pipCtx.fillStyle = "rgba(255,255,255,0.75)";
+        pipCtx.font = "18px sans-serif";
+        pipCtx.fillText(track.artist.slice(0, 26), 34, 98);
+      }
+
+      // Live Waveform inside Floating Island
+      const bars = 10;
+      for (let i = 0; i < bars; i++) {
+        const v = freqDataArray ? freqDataArray[i * 2] / 255 : 0;
+        const bh = isPlaying ? Math.max(8, v * 70) : 8;
+        pipCtx.fillStyle = "#ffffff";
+        pipCtx.beginPath();
+        pipCtx.roundRect(330 + i * 12, 95 - bh / 2, 7, bh, 4);
+        pipCtx.fill();
+      }
+
+      requestAnimationFrame(animateLoop);
+    }
+    requestAnimationFrame(animateLoop);
+
+    applySongTheme(tracks[0].palette);
+    renderAllPages();
+  </script>
+</body>
+</html>

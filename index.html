@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#140519" id="metaThemeColor" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Prism" />
+  <title>Prism Glass Player</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --theme-r: 236;
+      --theme-g: 72;
+      --theme-b: 153;
+      --theme-primary: #ec4899;
+      --theme-secondary: #a855f7;
+      --bg-base: #140519;
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background-color: var(--bg-base);
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    #dynamicBgWash {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.38) 0%, transparent 58%),
+        radial-gradient(circle at 82% 80%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.28) 0%, transparent 62%),
+        radial-gradient(circle at 50% 50%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.14) 0%, rgba(7, 4, 14, 0.96) 100%);
+      transition: background 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .ambient-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform, background-color;
+      transition: background-color 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* =====================================================================
+       1. HARMONY OS 7 STYLE SLOW & CONCISE SAND DISINTEGRATION
+       ===================================================================== */
+    #disintegrationCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      pointer-events: none;
+      z-index: 120;
+    }
+
+    @keyframes harmonyOS7Erode {
+      0% {
+        opacity: 1;
+        transform: scale3d(1, 1, 1);
+        filter: blur(0px) brightness(1);
+        clip-path: inset(0% 0% 0% 0% round 24px);
+      }
+      100% {
+        opacity: 0;
+        transform: scale3d(0.9, 0.9, 1) translateY(-24px);
+        filter: blur(8px) brightness(1.3);
+        clip-path: inset(25% 25% 25% 25% round 32px);
+      }
+    }
+
+    .track-eroding {
+      animation: harmonyOS7Erode 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+      pointer-events: none !important;
+    }
+
+    /* =====================================================================
+       2. EXACT 0.7s FULL-SCREEN PLAYER (0.5s Motion Blur)
+       ===================================================================== */
+    @keyframes fullPlayerOpen07s {
+      0% {
+        opacity: 0;
+        transform: translate3d(0, 92vh, 0) scale3d(0.9, 1.1, 1);
+      }
+      35% {
+        opacity: 0.9;
+        transform: translate3d(0, 20vh, 0) scale3d(0.96, 1.04, 1);
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+      }
+    }
+
+    @keyframes fullPlayerClose07s {
+      0% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(0, 100vh, 0) scale3d(0.9, 1.1, 1);
+      }
+    }
+
+    #mainAppShell {
+      transition:
+        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, filter, opacity;
+    }
+
+    #mainAppShell.receded {
+      transform: scale3d(0.92, 0.92, 1) translate3d(0, -10px, 0);
+      filter: blur(8px) brightness(0.7);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    #fullScreenPlayerModal {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      background:
+        radial-gradient(circle at 50% 22%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.38) 0%, transparent 62%),
+        linear-gradient(180deg, rgba(20, 11, 32, 0.94) 0%, rgba(8, 5, 15, 0.99) 100%);
+      backdrop-filter: blur(35px) saturate(180%);
+      -webkit-backdrop-filter: blur(35px) saturate(180%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: calc(1.8rem + var(--safe-top)) 24px calc(2.4rem + var(--safe-bottom)) 24px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate3d(0, 100vh, 0);
+      will-change: transform, opacity, filter;
+    }
+
+    #fullScreenPlayerModal.open {
+      animation: fullPlayerOpen07s 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      pointer-events: auto;
+    }
+
+    #fullScreenPlayerModal.closing {
+      animation: fullPlayerClose07s 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      pointer-events: none;
+    }
+
+    #bottomPlayerBar {
+      position: fixed;
+      bottom: calc(14px + var(--safe-bottom));
+      left: 50%;
+      transform: translate3d(-50%, 0, 0);
+      width: min(calc(100vw - 24px), 416px);
+      height: 70px;
+      border-radius: 28px;
+      z-index: 60;
+      cursor: pointer;
+      overflow: hidden;
+      background: linear-gradient(
+        135deg,
+        rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.3) 0%,
+        rgba(18, 12, 28, 0.88) 100%
+      );
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.65),
+        0 0 24px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.24),
+        inset 0 1px 2px rgba(255, 255, 255, 0.32);
+      transition:
+        transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.4s ease,
+        filter 0.5s ease,
+        background 0.5s ease;
+    }
+    #bottomPlayerBar:active {
+      transform: translate3d(-50%, 0, 0) scale3d(0.97, 0.97, 1);
+    }
+    #bottomPlayerBar.hidden-bar {
+      transform: translate3d(-50%, 40px, 0) scale3d(0.9, 0.9, 1);
+      filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* =====================================================================
+       3. 3-DOTS MENU WITH WEAKENED WATER-GLASS LENS
+       ===================================================================== */
+    #anchoredRowMenu {
+      position: fixed;
+      z-index: 85;
+      width: 214px;
+      padding: 8px;
+      border-radius: 26px;
+      background: rgba(22, 14, 34, 0.88);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow:
+        0 20px 45px rgba(0, 0, 0, 0.75),
+        0 0 25px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.15),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.2);
+      transform-origin: top right;
+      transform: scale3d(0.75, 0.75, 1);
+      opacity: 0;
+      pointer-events: none;
+      will-change: transform, opacity;
+      transition:
+        transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.2s ease;
+      touch-action: none;
+    }
+
+    #anchoredRowMenu.open {
+      transform: scale3d(1, 1, 1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #waterGlassLens {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 8px;
+      height: 44px;
+      border-radius: 18px;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 1;
+      background:
+        radial-gradient(120% 95% at 50% 8%, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.15) 100%);
+      backdrop-filter: blur(6px) brightness(1.1);
+      -webkit-backdrop-filter: blur(6px) brightness(1.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow:
+        inset 0 1px 3px rgba(255, 255, 255, 0.4),
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        0 0 12px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.2);
+      transform: translate3d(0, 0, 0) scale3d(0.98, 0.95, 1);
+      transition:
+        transform 0.22s cubic-bezier(0.34, 1.58, 0.64, 1),
+        opacity 0.15s ease,
+        background 0.2s ease;
+    }
+    #waterGlassLens.active {
+      opacity: 1;
+    }
+    #waterGlassLens.delete-tone {
+      background: radial-gradient(120% 95% at 50% 8%, rgba(255, 255, 255, 0.25) 0%, rgba(244, 63, 94, 0.15) 60%);
+      border-color: rgba(244, 63, 94, 0.35);
+      box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(244, 63, 94, 0.2);
+    }
+
+    .menu-row-item {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      height: 44px;
+      padding: 0 13px;
+      border-radius: 16px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .menu-row-label {
+      position: relative;
+      display: inline-block;
+      transition: text-shadow 0.2s ease, letter-spacing 0.2s ease;
+    }
+
+    .menu-row-item.slide-active {
+      transform: scale3d(1.04, 1.04, 1) translate3d(3px, 0, 0);
+      color: #ffffff;
+    }
+    .menu-row-item.slide-active .menu-row-label {
+      font-weight: 700;
+      text-shadow: 0 1px 4px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.6);
+    }
+    .menu-row-item[data-action="delete"].slide-active .menu-row-label {
+      color: #fff1f2;
+      text-shadow: 0 1px 4px rgba(244, 63, 94, 0.6);
+    }
+
+    /* =====================================================================
+       4. LIBRARY MUSIC SYMBOL ANIMATIONS
+       ===================================================================== */
+    @keyframes symbolPlayingPulse {
+      0%, 100% {
+        transform: scale3d(1, 1, 1);
+        box-shadow: 0 0 10px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.4);
+      }
+      50% {
+        transform: scale3d(1.08, 1.08, 1);
+        box-shadow: 0 0 20px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.8);
+      }
+    }
+    @keyframes symbolIdleTransparent {
+      0%, 100% {
+        transform: scale3d(1, 1, 1);
+        background: rgba(255, 255, 255, 0.04);
+        box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08);
+      }
+      50% {
+        transform: scale3d(1.05, 1.05, 1);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.15);
+      }
+    }
+    @keyframes symbolTapBurst {
+      0% { transform: scale3d(0.85, 0.85, 1); }
+      50% { transform: scale3d(1.15, 1.15, 1); }
+      100% { transform: scale3d(1, 1, 1); }
+    }
+
+    #libraryMusicSymbol {
+      cursor: pointer;
+      transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    #libraryMusicSymbol.playing-mode {
+      background: linear-gradient(135deg, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.5), rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.2));
+      border: 1px solid rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.7);
+      animation: symbolPlayingPulse 1.8s infinite ease-in-out;
+    }
+    #libraryMusicSymbol.idle-mode {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      animation: symbolIdleTransparent 2.5s infinite ease-in-out;
+    }
+    #libraryMusicSymbol.tap-burst {
+      animation: symbolTapBurst 0.4s ease forwards !important;
+    }
+
+    /* =====================================================================
+       5. RESTORED FLUID PAGE SLIDING & CAROUSEL
+       ===================================================================== */
+    .segment-pill-outer {
+      position: absolute;
+      top: 4px; bottom: 4px; left: 4px;
+      width: calc((100% - 8px) / 3);
+      pointer-events: none;
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .segment-pill-outer.dragging {
+      transition: none !important;
+    }
+    .segment-pill-inner {
+      width: 100%; height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.5), 0 4px 15px rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.4);
+      transition: transform 0.25s ease;
+    }
+    .segment-pill-inner.pop {
+      transform: scale3d(1.04, 1.12, 1);
+    }
+
+    #carouselViewport {
+      flex: 1; width: 100%; overflow: hidden; position: relative; touch-action: pan-y;
+      perspective: 1100px;
+    }
+    #carouselTrack {
+      display: flex; width: 300%; height: 100%;
+      will-change: transform;
+      transform: translate3d(0%, 0, 0);
+      transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #carouselTrack.dragging {
+      transition: none !important;
+    }
+
+    .carousel-page {
+      width: 33.333333%; height: 100%; overflow-y: auto; padding: 2px 4px 115px 4px;
+      transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
+    }
+    .carousel-page::-webkit-scrollbar { display: none; }
+    .carousel-page.inactive-page { opacity: 0.45; transform: scale3d(0.94, 0.94, 1); filter: blur(2px); }
+    .carousel-page.active-page { opacity: 1; transform: scale3d(1, 1, 1); filter: blur(0px); }
+
+    .smooth-card {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 1.5px rgba(255, 255, 255, 0.15), 0 8px 20px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s ease, background 0.4s ease, border-color 0.4s ease;
+    }
+    .smooth-card:active { transform: scale3d(0.975, 0.975, 1); }
+    .smooth-card.active-track {
+      background: linear-gradient(145deg, rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.25), rgba(255, 255, 255, 0.05));
+      border-color: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.5);
+    }
+    .tactile-btn { transition: transform 0.2s ease; }
+    .tactile-btn:active { transform: scale3d(0.88, 0.88, 1); }
+  </style>
+</head>
+<body class="relative flex flex-col justify-between select-none">
+
+  <!-- SVG Directional Vertical Motion Blur Filter (0.5s duration) -->
+  <svg class="hidden" width="0" height="0" aria-hidden="true">
+    <defs>
+      <filter id="verticalMotionFilter" x="-20%" y="-35%" width="140%" height="170%">
+        <feGaussianBlur id="verticalMotionBlurNode" in="SourceGraphic" stdDeviation="0,0" />
+      </filter>
+    </defs>
+  </svg>
+
+  <canvas id="disintegrationCanvas"></canvas>
+
+  <div id="dynamicBgWash"></div>
+  <div id="ambientOrb1" class="ambient-orb w-80 h-80 -top-16 -left-16" style="background-color: rgba(236, 72, 153, 0.35);"></div>
+  <div id="ambientOrb2" class="ambient-orb w-96 h-96 bottom-10 -right-20" style="background-color: rgba(168, 85, 247, 0.28);"></div>
+
+  <main id="mainAppShell" class="relative z-10 flex-1 flex flex-col max-w-md mx-auto w-full px-4 overflow-hidden"
+        style="padding-top: calc(1.25rem + var(--safe-top)); padding-bottom: var(--safe-bottom);">
+
+    <header class="flex items-center justify-between mb-4 shrink-0">
+      <div class="flex items-center gap-3">
+        <div id="libraryMusicSymbol"
+             onclick="triggerMusicSymbolAnimation()"
+             class="idle-mode w-11 h-11 rounded-full flex items-center justify-center">
+          <svg class="w-5 h-5 text-white/95" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">Library</h1>
+      </div>
+
+      <label class="tactile-btn px-3.5 py-1.5 rounded-full bg-emerald-950/65 border border-emerald-500/35 flex items-center gap-2 text-xs font-semibold text-emerald-300 cursor-pointer shadow-sm">
+        <input type="file" id="audioUploadInput" accept="audio/*" multiple class="hidden" />
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Auto-Sync
+      </label>
+    </header>
+
+    <div id="segmentedBar" class="relative p-1 rounded-full bg-white/[0.06] border border-white/10 flex items-center mb-4 shrink-0 touch-none cursor-pointer">
+      <div id="segmentPillOuter" class="segment-pill-outer">
+        <div id="segmentPillInner" class="segment-pill-inner"></div>
+      </div>
+      <button type="button" data-tab="0" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white text-center transition-colors">Tracks</button>
+      <button type="button" data-tab="1" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white/60 text-center transition-colors">Playlists</button>
+      <button type="button" data-tab="2" class="seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-white/60 text-center transition-colors">Queue</button>
+    </div>
+
+    <!-- Restored Carousel Viewport -->
+    <div id="carouselViewport">
+      <div id="carouselTrack">
+        <div id="tracksPage" class="carousel-page active-page space-y-3"></div>
+        <div id="playlistsPage" class="carousel-page inactive-page space-y-3"></div>
+        <div id="queuePage" class="carousel-page inactive-page space-y-3"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM MINI PLAYER -->
+  <div id="bottomPlayerBar" onclick="openFullScreenPlayer(event)">
+    <div class="w-full h-full flex items-center justify-between px-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
+             style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <p id="miniPlayerTitle" class="text-sm font-bold text-white truncate">Cyber Pulse (Synthwave)</p>
+          <p id="miniPlayerArtist" class="text-xs text-white/65 truncate mt-0.5">Liquid Glass Audio</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="event.stopPropagation(); togglePlayPause();"
+                class="tactile-btn w-10 h-10 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white">
+          <svg id="miniPlayIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" onclick="event.stopPropagation(); playNextTrack();"
+                class="tactile-btn w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white/85">
+ <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULL-SCREEN PLAYER MODAL -->
+  <div id="fullScreenPlayerModal">
+    <div class="flex items-center justify-between w-full">
+      <button type="button" onclick="closeFullScreenPlayer(event)"
+              class="tactile-btn w-11 h-11 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-white/90">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <span class="text-xs font-bold text-white/75 tracking-widest uppercase">Now Playing</span>
+      <div class="w-11"></div>
+    </div>
+
+    <div class="flex flex-col items-center my-auto space-y-7 w-full max-w-xs mx-auto">
+      <div class="w-64 h-64 rounded-[38px] shadow-2xl flex items-center justify-center border border-white/30 relative overflow-hidden"
+           style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+        <div class="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/25 pointer-events-none"></div>
+        <svg class="w-24 h-24 text-white/95 drop-shadow-lg" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+        </svg>
+      </div>
+      <div class="text-center w-full min-w-0">
+        <h2 id="fsPlayerTitle" class="text-2xl font-extrabold text-white truncate tracking-tight">Cyber Pulse</h2>
+        <p id="fsPlayerArtist" class="text-sm text-white/65 truncate mt-1.5">Liquid Glass Audio</p>
+      </div>
+    </div>
+
+    <div class="w-full max-w-md mx-auto space-y-7">
+      <div class="w-full space-y-2">
+        <div id="fsSeekTrack" class="relative w-full h-2.5 rounded-full bg-white/20 overflow-hidden cursor-pointer" onclick="seekFromFullScreen(event)">
+          <div id="fsSeekFill" class="h-full w-0 bg-white rounded-full transition-all duration-100"></div>
+        </div>
+        <div class="flex justify-between text-xs text-white/65 font-semibold">
+          <span id="fsCurTime">00:00</span>
+          <span id="fsTotTime">03:42</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-around w-full">
+        <button type="button" onclick="playPrevTrack()" class="tactile-btn text-white/90 hover:text-white p-3">
+          <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button type="button" onclick="togglePlayPause()"
+                class="tactile-btn w-[72px] h-[72px] rounded-full flex items-center justify-center text-white shadow-2xl border border-white/30"
+                style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">
+          <svg id="fsPlayIcon" class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" onclick="playNextTrack()" class="tactile-btn text-white/90 hover:text-white p-3">
+          <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3-DOTS MENU -->
+  <div id="anchoredRowMenu">
+    <div id="waterGlassLens"></div>
+    <div id="menuRowsWrapper" class="relative flex flex-col gap-1.5">
+      <div class="menu-row-item cursor-pointer" data-index="0" data-action="queue">
+        <svg class="w-4 h-4 text-fuchsia-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7m4 0h6m-3-3v6"/>
+        </svg>
+        <span class="menu-row-label">Add to Queue</span>
+      </div>
+      <div class="menu-row-item cursor-pointer" data-index="1" data-action="playlist">
+        <svg class="w-4 h-4 text-indigo-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        <span class="menu-row-label">Add to Playlist</span>
+      </div>
+      <div class="menu-row-item cursor-pointer text-rose-300" data-index="2" data-action="delete">
+        <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        <span class="menu-row-label">Delete</span>
+      </div>
+    </div>
+    <div id="inlinePlaylistCreator" class="hidden flex-col gap-2 p-1.5 relative z-10">
+      <input id="inlinePlNameInput" type="text" placeholder="Playlist name..."
+             class="w-full px-3 py-2 rounded-xl bg-black/45 border border-white/20 text-xs text-white placeholder-white/45 focus:outline-none" />
+      <div class="flex gap-1.5">
+        <button type="button" onclick="confirmInlinePlaylist()" class="tactile-btn flex-1 py-1.5 rounded-xl text-xs font-bold text-white" style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));">Save</button>
+        <button type="button" onclick="closeAnchoredMenu()" class="tactile-btn px-3 py-1.5 rounded-xl bg-white/10 text-xs text-white/75">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastBanner" class="fixed top-6 left-1/2 -translate-x-1/2 z-[130] px-4 py-2 rounded-full bg-black/85 border border-white/15 backdrop-blur-xl text-xs font-semibold text-white shadow-xl pointer-events-none opacity-0 transition-all duration-300 scale-95">Done</div>
+
+  <script>
+    /********************************************************************
+     * SERVICE WORKER (v16)
+     ********************************************************************/
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            if (key !== 'glass-music-player-v16') await caches.delete(key);
+          }
+          const reg = await navigator.serviceWorker.register('./sw.js');
+          reg.update();
+        } catch (e) {}
+      });
+    }
+
+    const COLOR_PALETTES = [
+      { name: "pink", primary: "#ec4899", secondary: "#d946ef", rgb: [236, 72, 153], bgBase: "#16061b" },
+      { name: "purple", primary: "#6366f1", secondary: "#8b5cf6", rgb: [99, 102, 241], bgBase: "#0a0820" },
+      { name: "green", primary: "#10b981", secondary: "#0d9488", rgb: [16, 185, 129], bgBase: "#041814" },
+      { name: "amber", primary: "#f59e0b", secondary: "#ea580c", rgb: [245, 158, 11], bgBase: "#1a0e04" },
+      { name: "cyan", primary: "#06b6d4", secondary: "#3b82f6", rgb: [6, 182, 212], bgBase: "#04151f" },
+      { name: "rose", primary: "#f43f5e", secondary: "#e11d48", rgb: [244, 63, 94], bgBase: "#1c050c" }
+    ];
+
+    const DB_NAME = "GlassMusicStorageDB";
+    const STORE_NAME = "tracks";
+    let dbInstance = null;
+
+    let tracks = [
+      { id: "sample_1", title: "Cyber Pulse (Synthwave)", artist: "Liquid Glass Audio", sample: true, freq: 115, duration: 222, palette: COLOR_PALETTES[0] },
+      { id: "sample_2", title: "Midnight Chill (Lo-Fi)", artist: "Aura Soundscapes", sample: true, freq: 88, duration: 198, palette: COLOR_PALETTES[1] },
+      { id: "sample_3", title: "Starlight Drifts (Melodic)", artist: "Neon Horizon", sample: true, freq: 146, duration: 245, palette: COLOR_PALETTES[2] }
+    ];
+    let queueList = [...tracks];
+    let playlists = [];
+    let activeTab = 0, currentTrackIndex = 0, isPlaying = false, sampleElapsed = 0;
+
+    function applySongTheme(palette) {
+      if (!palette) return;
+      const root = document.documentElement;
+      root.style.setProperty("--theme-r", palette.rgb[0]);
+      root.style.setProperty("--theme-g", palette.rgb[1]);
+      root.style.setProperty("--theme-b", palette.rgb[2]);
+      root.style.setProperty("--theme-primary", palette.primary);
+      root.style.setProperty("--theme-secondary", palette.secondary);
+      root.style.setProperty("--bg-base", palette.bgBase);
+      document.getElementById("ambientOrb1").style.backgroundColor = `rgba(${palette.rgb[0]}, ${palette.rgb[1]}, ${palette.rgb[2]}, 0.38)`;
+      document.getElementById("ambientOrb2").style.backgroundColor = `rgba(${palette.rgb[0]}, ${palette.rgb[1]}, ${palette.rgb[2]}, 0.28)`;
+      syncMusicSymbolState();
+    }
+
+    function syncMusicSymbolState() {
+      const sym = document.getElementById("libraryMusicSymbol");
+      sym.classList.remove("playing-mode", "idle-mode");
+      sym.classList.add(isPlaying ? "playing-mode" : "idle-mode");
+    }
+
+    function triggerMusicSymbolAnimation() {
+      const sym = document.getElementById("libraryMusicSymbol");
+      sym.classList.remove("tap-burst");
+      void sym.offsetWidth;
+      sym.classList.add("tap-burst");
+      setTimeout(() => {
+        sym.classList.remove("tap-burst");
+        syncMusicSymbolState();
+      }, 400);
+    }
+
+    const dbReq = indexedDB.open(DB_NAME, 1);
+    dbReq.onupgradeneeded = (e) => {
+      if (!e.target.result.objectStoreNames.contains(STORE_NAME)) e.target.result.createObjectStore(STORE_NAME, { keyPath: "id" });
+    };
+    dbReq.onsuccess = (e) => {
+      dbInstance = e.target.result;
+      dbInstance.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (ev) => {
+        (ev.target.result || []).forEach((item, idx) => {
+          const blobUrl = URL.createObjectURL(item.blob);
+          const palette = COLOR_PALETTES[(3 + idx) % COLOR_PALETTES.length];
+          const tr = { id: item.id, title: item.title, artist: item.artist || "Auto-Synced Audio", url: blobUrl, sample: false, palette };
+          tracks.push(tr); queueList.push(tr);
+        });
+        renderAllPages();
+      };
+    };
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const t = document.getElementById("toastBanner");
+      t.textContent = msg;
+      t.classList.remove("opacity-0", "scale-95");
+      t.classList.add("opacity-100", "scale-100");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.classList.remove("opacity-100", "scale-100");
+        t.classList.add("opacity-0", "scale-95");
+      }, 2000);
+    }
+
+    /********************************************************************
+     * 1. HARMONYOS 7 STYLE SLOW & CONCISE SAND DISINTEGRATION ENGINE
+     ********************************************************************/
+    const disCanvas = document.getElementById("disintegrationCanvas");
+    const disCtx = disCanvas.getContext("2d");
+    let activeParticles = [];
+    let isDisintegratingLoop = false;
+
+    function resizeDisintegrationCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      disCanvas.width = window.innerWidth * dpr;
+      disCanvas.height = window.innerHeight * dpr;
+      disCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener("resize", resizeDisintegrationCanvas);
+    resizeDisintegrationCanvas();
+
+    function spawnCardDisintegrationParticles(cardEl, palette) {
+      const rect = cardEl.getBoundingClientRect();
+      const [r, g, b] = palette ? palette.rgb : [236, 72, 153];
+      const count = 2400;
+
+      for (let i = 0; i < count; i++) {
+        const px = rect.left + Math.random() * rect.width;
+        const py = rect.top + Math.random() * rect.height;
+
+        const speedY = -0.2 - Math.random() * 2.2; // Perfectly slow upward silt drift
+        const speedX = (Math.random() - 0.5) * 0.4;
+
+        const distBL = Math.hypot(px - rect.left, py - rect.bottom);
+        const distTR = Math.hypot(px - rect.right, py - rect.top);
+        const minCornerDist = Math.min(distBL, distTR);
+        const delayFrames = Math.floor((minCornerDist / rect.width) * 32 + Math.random() * 8);
+
+        activeParticles.push({
+          x: px, y: py,
+          vx: speedX, vy: speedY,
+          size: 0.8 + Math.random() * 1.3,
+          alpha: 1,
+          decay: 0.007 + Math.random() * 0.012, // Slow, elegant concise fade out
+          delay: delayFrames,
+          color: `${r}, ${g}, ${b}`
+        });
+      }
+
+      if (!isDisintegratingLoop) {
+        isDisintegratingLoop = true;
+        requestAnimationFrame(stepDisintegrationParticles);
+      }
+    }
+
+    function stepDisintegrationParticles() {
+      disCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const p = activeParticles[i];
+        if (p.delay > 0) { p.delay--; continue; }
+
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          activeParticles.splice(i, 1);
+          continue;
+        }
+
+        disCtx.fillStyle = `rgba(${p.color}, ${p.alpha})`;
+        disCtx.fillRect(p.x, p.y, p.size, p.size * (1 + Math.random()));
+      }
+
+      if (activeParticles.length > 0) requestAnimationFrame(stepDisintegrationParticles);
+      else {
+        disCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        isDisintegratingLoop = false;
+      }
+    }
+/********************************************************************
+     * 2. EXACT 0.7s FULL-SCREEN PLAYER WITH 0.5s MOTION BLUR
+     ********************************************************************/
+    const fullScreenModal = document.getElementById("fullScreenPlayerModal");
+    const mainAppShell = document.getElementById("mainAppShell");
+    const bottomPlayerBar = document.getElementById("bottomPlayerBar");
+    const motionBlurNode = document.getElementById("verticalMotionBlurNode");
+    let blurAnimFrame = null;
+
+    function animateMotionBlurCurve(durationMs) {
+      cancelAnimationFrame(blurAnimFrame);
+      const start = performance.now();
+
+      function tick(now) {
+        const t = Math.min(1, (now - start) / durationMs);
+        const intensity = Math.sin(t * Math.PI);
+        const verticalBlur = (intensity * 12).toFixed(2);
+        if (motionBlurNode) motionBlurNode.setAttribute("stdDeviation", `0,${verticalBlur}`);
+
+        if (t < 1) blurAnimFrame = requestAnimationFrame(tick);
+        else if (motionBlurNode) motionBlurNode.setAttribute("stdDeviation", "0,0");
+      }
+      blurAnimFrame = requestAnimationFrame(tick);
+    }
+
+    function openFullScreenPlayer(e) {
+      if (e) e.stopPropagation();
+      fullScreenModal.classList.remove("closing");
+      void fullScreenModal.offsetWidth;
+      fullScreenModal.classList.add("open");
+      mainAppShell.classList.add("receded");
+      bottomPlayerBar.classList.add("hidden-bar");
+      animateMotionBlurCurve(500);
+    }
+
+    function closeFullScreenPlayer(e) {
+      if (e) e.stopPropagation();
+      fullScreenModal.classList.remove("open");
+      void fullScreenModal.offsetWidth;
+      fullScreenModal.classList.add("closing");
+      mainAppShell.classList.remove("receded");
+      bottomPlayerBar.classList.remove("hidden-bar");
+      animateMotionBlurCurve(500);
+    }
+
+    /* AUDIO CONTROLS */
+    const audioElement = new Audio();
+    audioElement.crossOrigin = "anonymous"; audioElement.playsInline = true;
+    let audioCtx = null, analyserNode = null, sourceNodeRef = null, synthOsc = null, synthGain = null;
+
+    function ensureAudioEngineReady() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyserNode = audioCtx.createAnalyser(); analyserNode.fftSize = 64;
+        sourceNodeRef = audioCtx.createMediaElementSource(audioElement);
+        sourceNodeRef.connect(analyserNode); analyserNode.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+    function stopSampleOscillator() {
+      if (synthOsc) { try { synthOsc.stop(); synthOsc.disconnect(); } catch (err) {} synthOsc = null; }
+    }
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) return "00:00";
+      const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+      return `${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+    }
+    function playTrackById(id) {
+      const idx = tracks.findIndex(t => t.id === id);
+      if (idx !== -1) playTrackAtIndex(idx);
+    }
+    function playTrackAtIndex(index) {
+      if (!tracks.length) return;
+      ensureAudioEngineReady();
+      currentTrackIndex = Math.max(0, Math.min(tracks.length - 1, index));
+      const track = tracks[currentTrackIndex];
+      document.getElementById("miniPlayerTitle").textContent = track.title;
+      document.getElementById("miniPlayerArtist").textContent = track.artist;
+      document.getElementById("fsPlayerTitle").textContent = track.title;
+      document.getElementById("fsPlayerArtist").textContent = track.artist;
+
+      stopSampleOscillator(); sampleElapsed = 0;
+      if (track.sample) {
+        audioElement.pause();
+        synthOsc = audioCtx.createOscillator(); synthGain = audioCtx.createGain();
+        synthOsc.type = "sine"; synthOsc.frequency.setValueAtTime(track.freq, audioCtx.currentTime);
+        synthGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        synthOsc.connect(synthGain); synthGain.connect(analyserNode); synthOsc.start();
+        document.getElementById("fsTotTime").textContent = formatTime(track.duration || 210);
+        isPlaying = true;
+      } else {
+        audioElement.src = track.url; audioElement.play().catch(() => {}); isPlaying = true;
+      }
+      applySongTheme(track.palette); syncPlayIcons(); renderAllPages();
+    }
+    function togglePlayPause() {
+      if (!tracks.length) return;
+      ensureAudioEngineReady();
+      const track = tracks[currentTrackIndex];
+      if (isPlaying) {
+        track.sample ? stopSampleOscillator() : audioElement.pause();
+        isPlaying = false;
+      } else {
+        !track.sample && audioElement.src ? audioElement.play().catch(() => {}) : playTrackAtIndex(currentTrackIndex);
+        isPlaying = true;
+      }
+      syncPlayIcons(); applySongTheme(track.palette);
+    }
+    function playNextTrack() { playTrackAtIndex((currentTrackIndex + 1) % tracks.length); }
+    function playPrevTrack() { playTrackAtIndex((currentTrackIndex - 1 + tracks.length) % tracks.length); }
+    function syncPlayIcons() {
+      const path = isPlaying ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+      document.getElementById("miniPlayIcon").innerHTML = path;
+      document.getElementById("fsPlayIcon").innerHTML = path;
+    }
+    function seekFromFullScreen(e) {
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const track = tracks[currentTrackIndex];
+      if (!track) return;
+      track.sample ? (sampleElapsed = ratio * (track.duration || 210)) : (audioElement.currentTime = ratio * audioElement.duration);
+      document.getElementById("fsSeekFill").style.width = `${ratio * 100}%`;
+    }
+    audioElement.addEventListener("timeupdate", () => {
+      if (audioElement.duration) {
+        document.getElementById("fsSeekFill").style.width = `${(audioElement.currentTime / audioElement.duration) * 100}%`;
+        document.getElementById("fsCurTime").textContent = formatTime(audioElement.currentTime);
+        document.getElementById("fsTotTime").textContent = formatTime(audioElement.duration);
+      }
+    });
+    audioElement.addEventListener("ended", playNextTrack);
+    setInterval(() => {
+      const track = tracks[currentTrackIndex];
+      if (isPlaying && track && track.sample) {
+        const total = track.duration || 210;
+        sampleElapsed = (sampleElapsed + 0.25) % total;
+        document.getElementById("fsSeekFill").style.width = `${(sampleElapsed / total) * 100}%`;
+        document.getElementById("fsCurTime").textContent = formatTime(sampleElapsed);
+      }
+    }, 250);
+
+    /********************************************************************
+     * 3. FIXED 3-DOTS MENU (No auto-select on touch)
+     ********************************************************************/
+    const anchoredMenu = document.getElementById("anchoredRowMenu");
+    const waterGlassLens = document.getElementById("waterGlassLens");
+    const menuRowsWrapper = document.getElementById("menuRowsWrapper");
+    const inlinePlaylistCreator = document.getElementById("inlinePlaylistCreator");
+    const rowItems = Array.from(document.querySelectorAll(".menu-row-item"));
+
+    let activeMenuTrackId = null, isMenuOpen = false, isSlidingMenu = false, highlightedAction = null;
+    let menuOpenStartX = 0, menuOpenStartY = 0;
+
+    function openAnchoredMenu(e, trackId, btnEl) {
+      e.stopPropagation(); e.preventDefault();
+      activeMenuTrackId = trackId;
+      menuRowsWrapper.classList.remove("hidden");
+      inlinePlaylistCreator.classList.add("hidden");
+      inlinePlaylistCreator.classList.remove("flex");
+      clearRowHighlights();
+
+      const rect = btnEl.getBoundingClientRect();
+      let left = rect.right - 214, top = rect.bottom + 6;
+      if (left < 12) left = 12;
+      if (top + 165 > window.innerHeight - 95) { top = rect.top - 165 - 6; anchoredMenu.style.transformOrigin = "bottom right"; }
+      else { anchoredMenu.style.transformOrigin = "top right"; }
+
+      anchoredMenu.style.left = `${left}px`; anchoredMenu.style.top = `${top}px`;
+      anchoredMenu.classList.add("open");
+      isMenuOpen = true; isSlidingMenu = false;
+
+      menuOpenStartX = e.clientX;
+      menuOpenStartY = e.clientY;
+    }
+
+    function closeAnchoredMenu() {
+      anchoredMenu.classList.remove("open");
+      isMenuOpen = false; isSlidingMenu = false; highlightedAction = null;
+      clearRowHighlights();
+    }
+
+    function clearRowHighlights() {
+      rowItems.forEach(r => r.classList.remove("slide-active"));
+      waterGlassLens.classList.remove("active", "delete-tone");
+    }
+
+    function setRowWaterLens(row) {
+      if (!row) { clearRowHighlights(); highlightedAction = null; return; }
+      rowItems.forEach(r => r.classList.remove("slide-active"));
+      row.classList.add("slide-active");
+      highlightedAction = row.getAttribute("data-action");
+
+      const offsetY = Number(row.getAttribute("data-index") || 0) * 50;
+      waterGlassLens.classList.add("active");
+      waterGlassLens.classList.toggle("delete-tone", highlightedAction === "delete");
+      waterGlassLens.style.transform = `translate3d(0, ${offsetY}px, 0) scale3d(1.02, 1.05, 1)`;
+    }
+
+    function updateSlideHighlight(clientX, clientY) {
+      const el = document.elementFromPoint(clientX, clientY);
+      const row = el ? el.closest(".menu-row-item") : null;
+      if (row) { setRowWaterLens(row); }
+      else {
+        const rect = anchoredMenu.getBoundingClientRect();
+        if (clientX >= rect.left - 20 && clientX <= rect.right + 20 && clientY >= rect.top && clientY <= rect.bottom) {
+          const idx = Math.max(0, Math.min(2, Math.floor((clientY - rect.top - 8) / 50)));
+          setRowWaterLens(rowItems[idx]);
+        } else {
+          clearRowHighlights(); highlightedAction = null;
+        }
+      }
+    }
+
+    window.addEventListener("pointermove", (e) => {
+      if (!isMenuOpen) return;
+      if (Math.hypot(e.clientX - menuOpenStartX, e.clientY - menuOpenStartY) > 10) {
+        isSlidingMenu = true;
+        updateSlideHighlight(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener("pointerup", (e) => {
+      if (!isMenuOpen) return;
+      if (isSlidingMenu && highlightedAction) {
+        executeMenuAction(highlightedAction);
+      }
+      isSlidingMenu = false;
+    });
+
+    rowItems.forEach(row => {
+      row.addEventListener("click", (e) => {
+        e.stopPropagation();
+        executeMenuAction(row.getAttribute("data-action"));
+      });
+    });
+
+    document.addEventListener("pointerdown", (e) => {
+      if (isMenuOpen && !anchoredMenu.contains(e.target) && !e.target.closest(".dots-trigger")) {
+        closeAnchoredMenu();
+      }
+    });
+
+    function executeMenuAction(action) {
+      const trackId = activeMenuTrackId;
+      const track = tracks.find(t => t.id === trackId);
+      if (!track) { closeAnchoredMenu(); return; }
+
+      if (action === "queue") {
+        queueList.push({ ...track }); renderAllPages(); showToast(`Added to Queue`); closeAnchoredMenu();
+      } else if (action === "playlist") {
+        waterGlassLens.classList.remove("active"); menuRowsWrapper.classList.add("hidden");
+        inlinePlaylistCreator.classList.remove("hidden"); inlinePlaylistCreator.classList.add("flex");
+        document.getElementById("inlinePlNameInput").value = ""; setTimeout(() => document.getElementById("inlinePlNameInput").focus(), 60);
+      } else if (action === "delete") {
+        closeAnchoredMenu();
+        const cardEl = document.getElementById(activeTab === 2 ? `queue_card_${trackId}` : `track_card_${trackId}`);
+        if (cardEl) {
+          spawnCardDisintegrationParticles(cardEl, track.palette);
+          cardEl.classList.add("track-eroding");
+        }
+        setTimeout(() => {
+          tracks = tracks.filter(t => t.id !== trackId); queueList = queueList.filter(t => t.id !== trackId);
+          if (dbInstance) dbInstance.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).delete(trackId);
+          if (currentTrackIndex >= tracks.length) currentTrackIndex = Math.max(0, tracks.length - 1);
+          if (tracks[currentTrackIndex]) applySongTheme(tracks[currentTrackIndex].palette);
+          renderAllPages(); showToast(`Deleted successfully`);
+        }, 1100); // 1.1s matching slow harmonyOS 7 disintegration
+      }
+    }
+
+    function confirmInlinePlaylist() {
+      const name = document.getElementById("inlinePlNameInput").value.trim() || "My Mix";
+      const track = tracks.find(t => t.id === activeMenuTrackId);
+      playlists.push({ id: "pl_" + Date.now(), name, tracks: track ? [track] : [], palette: track ? track.palette : COLOR_PALETTES[0] });
+      renderAllPages(); closeAnchoredMenu(); goToTab(1); showToast(`Playlist created`);
+    }
+
+    /********************************************************************
+     * 5. RESTORED FLUID PAGE SLIDING & CAROUSEL NAVIGATION
+     ********************************************************************/
+    const segmentedBar = document.getElementById("segmentedBar"), pillOuter = document.getElementById("segmentPillOuter"), pillInner = document.getElementById("segmentPillInner"), segButtons = document.querySelectorAll(".seg-btn"), carouselViewport = document.getElementById("carouselViewport"), carouselTrack = document.getElementById("carouselTrack"), pageEls = [document.getElementById("tracksPage"), document.getElementById("playlistsPage"), document.getElementById("queuePage")];
+    
+    function goToTab(idx) {
+      activeTab = Math.max(0, Math.min(2, idx));
+      pillOuter.classList.remove("dragging");
+      carouselTrack.classList.remove("dragging");
+
+      pillOuter.style.transform = `translate3d(${activeTab * 100}%, 0, 0)`;
+      carouselTrack.style.transform = `translate3d(-${activeTab * (100 / 3)}%, 0, 0)`;
+
+      pageEls.forEach((p, i) => {
+        p.classList.toggle("active-page", i === activeTab);
+        p.classList.toggle("inactive-page", i !== activeTab);
+      });
+
+      pillInner.classList.add("pop");
+      setTimeout(() => pillInner.classList.remove("pop"), 240);
+
+      segButtons.forEach((btn, i) => btn.className = `seg-btn relative z-10 flex-1 py-2.5 text-xs font-semibold text-center transition-colors ${i === activeTab ? "text-white" : "text-white/60"}`);
+    }
+
+    segButtons.forEach((btn, i) => btn.addEventListener("click", () => goToTab(i)));
+
+    let isTabDragging = false;
+    segmentedBar.addEventListener("pointerdown", (e) => {
+      isTabDragging = true;
+      pillOuter.classList.add("dragging");
+      carouselTrack.classList.add("dragging");
+      pillInner.classList.add("pop");
+      segmentedBar.setPointerCapture(e.pointerId);
+    });
+
+    segmentedBar.addEventListener("pointermove", (e) => {
+      if (!isTabDragging) return;
+      const rect = segmentedBar.getBoundingClientRect();
+      const relX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      const continuousTab = Math.max(0, Math.min(2, (relX / rect.width) * 3 - 0.5));
+      pillOuter.style.transform = `translate3d(${continuousTab * 100}%, 0, 0)`;
+      carouselTrack.style.transform = `translate3d(-${continuousTab * (100 / 3)}%, 0, 0)`;
+    });
+
+    function endTabDrag(e) {
+      if (!isTabDragging) return;
+      isTabDragging = false;
+      const rect = segmentedBar.getBoundingClientRect();
+      goToTab(Math.floor((Math.max(0, Math.min(rect.width - 1, e.clientX - rect.left)) / rect.width) * 3));
+    }
+    segmentedBar.addEventListener("pointerup", endTabDrag);
+    segmentedBar.addEventListener("pointercancel", endTabDrag);
+
+    // Screen Touch Sliding Gestures
+    let swipeStartX = 0, swipeStartY = 0, swipeCurrentX = 0, isSwipingScreen = false, swipeAxisLocked = null;
+    carouselViewport.addEventListener("touchstart", (e) => {
+      if (isMenuOpen) return;
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+      swipeCurrentX = swipeStartX;
+      isSwipingScreen = true;
+      swipeAxisLocked = null;
+    }, { passive: true });
+
+    carouselViewport.addEventListener("touchmove", (e) => {
+      if (!isSwipingScreen) return;
+      const dx = e.touches[0].clientX - swipeStartX;
+      const dy = e.touches[0].clientY - swipeStartY;
+      if (!swipeAxisLocked) {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          swipeAxisLocked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+          if (swipeAxisLocked === "x") {
+            pillOuter.classList.add("dragging");
+            carouselTrack.classList.add("dragging");
+          }
+        }
+      }
+      if (swipeAxisLocked === "x") {
+        swipeCurrentX = e.touches[0].clientX;
+        const width = carouselViewport.clientWidth || window.innerWidth;
+        const continuousTab = Math.max(0, Math.min(2, activeTab + (-dx / width)));
+        pillOuter.style.transform = `translate3d(${continuousTab * 100}%, 0, 0)`;
+        carouselTrack.style.transform = `translate3d(-${continuousTab * (100 / 3)}%, 0, 0)`;
+      }
+    }, { passive: true });
+
+    carouselViewport.addEventListener("touchend", () => {
+      if (!isSwipingScreen) return;
+      isSwipingScreen = false;
+      if (swipeAxisLocked === "x") {
+        const dx = swipeCurrentX - swipeStartX;
+        const width = carouselViewport.clientWidth || window.innerWidth;
+        let nextTab = activeTab;
+        if (dx < -width * 0.22) nextTab = Math.min(2, activeTab + 1);
+        else if (dx > width * 0.22) nextTab = Math.max(0, activeTab - 1);
+        goToTab(nextTab);
+      }
+      swipeAxisLocked = null;
+    });
+
+    function createTrackCardHTML(t, activeTrackId, prefix) {
+      return `
+        <div id="${prefix}${t.id}" onclick="playTrackById('${t.id}')"
+             class="smooth-card rounded-3xl p-3.5 flex items-center justify-between cursor-pointer ${t.id === activeTrackId ? "active-track" : ""}">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+                 style="background: linear-gradient(135deg, ${t.palette.primary}, ${t.palette.secondary});">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+            </div>
+            <div class="truncate">
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-semibold text-white truncate">${t.title}</p>
+                ${t.sample ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-teal-950/80 border border-teal-400/30 text-teal-300 font-medium">Sample</span>' : ""}
+              </div>
+              <p class="text-xs text-white/60 truncate mt-0.5">${t.artist}</p>
+            </div>
+          </div>
+          <button type="button" onpointerdown="openAnchoredMenu(event, '${t.id}', this)" onclick="event.stopPropagation()"
+                  class="dots-trigger tactile-btn w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center text-white/70 shrink-0 text-lg font-bold">⋮</button>
+        </div>`;
+    }
+
+    function renderAllPages() {
+      const activeTrackId = tracks[currentTrackIndex]?.id;
+      document.getElementById("tracksPage").innerHTML = tracks.length ? tracks.map(t => createTrackCardHTML(t, activeTrackId, "track_card_")).join("") : `<div class="smooth-card rounded-3xl p-8 text-center text-xs text-white/60">No tracks.</div>`;
+      document.getElementById("playlistsPage").innerHTML = playlists.length === 0 ? `<div class="smooth-card rounded-3xl p-8 text-center"><p class="text-xs text-white/55">No playlists yet.</p></div>` : playlists.map(pl => `<div class="smooth-card rounded-3xl p-4 flex items-center justify-between"><div class="flex items-center gap-3.5"><div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm" style="background: linear-gradient(135deg, ${pl.palette.primary}, ${pl.palette.secondary});">♪</div><div><p class="font-semibold text-sm text-white">${pl.name}</p><p class="text-xs text-white/55">${pl.tracks.length} song${pl.tracks.length === 1 ? "" : "s"}</p></div></div></div>`).join("");
+      document.getElementById("queuePage").innerHTML = queueList.length ? queueList.map(t => createTrackCardHTML(t, activeTrackId, "queue_card_")).join("") : `<div class="smooth-card rounded-3xl p-8 text-center text-xs text-white/60">Queue empty.</div>`;
+    }
+
+    applySongTheme(tracks[0].palette); renderAllPages();
+  </script>
+</body>
+</html>
